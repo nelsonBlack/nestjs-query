@@ -1,14 +1,21 @@
+// eslint-disable-next-line max-classes-per-file
 import { plainToClass } from 'class-transformer';
 import { validateSync } from 'class-validator';
-import { Resolver, Query, Args, Int, InputType } from '@nestjs/graphql';
-import { DeleteOneInputType } from '../../src';
-import { deleteOneInputTypeSDL, expectSDL } from '../__fixtures__';
+import { Resolver, Query, Args, Int, InputType, ObjectType } from '@nestjs/graphql';
+import { DeleteOneInputType, FilterableField, IDField } from '../../src';
+import { generateSchema } from '../__fixtures__';
 
 describe('DeleteOneInputType', (): void => {
-  @InputType()
-  class DeleteOne extends DeleteOneInputType() {}
+  @ObjectType()
+  class DeleteOneDTO {
+    @FilterableField()
+    field!: string;
+  }
 
-  it('should create an args type with the field as the type', async () => {
+  @InputType()
+  class DeleteOne extends DeleteOneInputType(DeleteOneDTO) {}
+
+  it('should create an input type with id field as the type', async () => {
     @Resolver()
     class DeleteOneInputTypeSpec {
       @Query(() => Int)
@@ -17,7 +24,30 @@ describe('DeleteOneInputType', (): void => {
         return 1;
       }
     }
-    return expectSDL([DeleteOneInputTypeSpec], deleteOneInputTypeSDL);
+    const schema = await generateSchema([DeleteOneInputTypeSpec]);
+    expect(schema).toMatchSnapshot();
+  });
+
+  it('should create an input type with a custom ID type', async () => {
+    @ObjectType()
+    class DeleteOneCustomIDDTO {
+      @IDField(() => String)
+      field!: string;
+    }
+
+    @InputType()
+    class DeleteOneCustomId extends DeleteOneInputType(DeleteOneCustomIDDTO) {}
+
+    @Resolver()
+    class DeleteOneInputTypeSpec {
+      @Query(() => Int)
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      test(@Args('input') input: DeleteOneCustomId): number {
+        return 1;
+      }
+    }
+    const schema = await generateSchema([DeleteOneInputTypeSpec]);
+    expect(schema).toMatchSnapshot();
   });
 
   describe('validation', () => {

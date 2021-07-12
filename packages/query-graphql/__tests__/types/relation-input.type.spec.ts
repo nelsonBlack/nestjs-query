@@ -1,14 +1,39 @@
+// eslint-disable-next-line max-classes-per-file
 import { plainToClass } from 'class-transformer';
 import { validateSync } from 'class-validator';
-import { InputType, Resolver, Query, Args, Int } from '@nestjs/graphql';
-import { RelationInputType } from '../../src';
-import { expectSDL, relationInputTypeSDL } from '../__fixtures__';
+import { InputType, Resolver, Query, Args, Int, ObjectType } from '@nestjs/graphql';
+import { FilterableField, IDField, RelationInputType } from '../../src';
+import { generateSchema } from '../__fixtures__';
 
 describe('RelationInputType', (): void => {
-  @InputType()
-  class RelationInput extends RelationInputType() {}
+  @ObjectType()
+  class ParentDTO {
+    @FilterableField()
+    field!: string;
+  }
 
-  it('should create an args type with an array field', () => {
+  @ObjectType()
+  class ParentCustomIDDTO {
+    @IDField(() => String)
+    id!: string;
+  }
+
+  @ObjectType()
+  class RelationDTO {
+    @FilterableField()
+    relationField!: string;
+  }
+
+  @ObjectType()
+  class RelationCustomIDDTO {
+    @IDField(() => String)
+    relationId!: string;
+  }
+
+  @InputType()
+  class RelationInput extends RelationInputType(ParentDTO, RelationDTO) {}
+
+  it('should create an input type with an id and relationId', async () => {
     @Resolver()
     class RelationInputTypeSpec {
       @Query(() => Int)
@@ -17,7 +42,56 @@ describe('RelationInputType', (): void => {
         return 1;
       }
     }
-    return expectSDL([RelationInputTypeSpec], relationInputTypeSDL);
+    const schema = await generateSchema([RelationInputTypeSpec]);
+    expect(schema).toMatchSnapshot();
+  });
+
+  it('should create an input type with a custom id for the parent', async () => {
+    @InputType()
+    class RelationCustomParentIdInput extends RelationInputType(ParentCustomIDDTO, RelationDTO) {}
+
+    @Resolver()
+    class RelationCustomIdInputTypeSpec {
+      @Query(() => Int)
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      test(@Args('input') input: RelationCustomParentIdInput): number {
+        return 1;
+      }
+    }
+    const schema = await generateSchema([RelationCustomIdInputTypeSpec]);
+    expect(schema).toMatchSnapshot();
+  });
+
+  it('should create an input type with a custom id for the relation', async () => {
+    @InputType()
+    class RelationCustomRelationIdInput extends RelationInputType(ParentDTO, RelationCustomIDDTO) {}
+
+    @Resolver()
+    class RelationCustomIdInputTypeSpec {
+      @Query(() => Int)
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      test(@Args('input') input: RelationCustomRelationIdInput): number {
+        return 1;
+      }
+    }
+    const schema = await generateSchema([RelationCustomIdInputTypeSpec]);
+    expect(schema).toMatchSnapshot();
+  });
+
+  it('should create an input type with a custom id for the parent and relation', async () => {
+    @InputType()
+    class RelationCustomParentAndRelationIdInput extends RelationInputType(ParentCustomIDDTO, RelationCustomIDDTO) {}
+
+    @Resolver()
+    class RelationCustomIdInputTypeSpec {
+      @Query(() => Int)
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      test(@Args('input') input: RelationCustomParentAndRelationIdInput): number {
+        return 1;
+      }
+    }
+    const schema = await generateSchema([RelationCustomIdInputTypeSpec]);
+    expect(schema).toMatchSnapshot();
   });
 
   it('should return the input when accessing the update field', () => {
